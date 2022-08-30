@@ -13,3 +13,6 @@ struct session *
 create_session(struct server *svr, int fd, struct sockaddr *addr, int addrlen);
 
 void delete_session(struct session *ses);
+
+int add_stream_context(struct session *ses, int stream_id);
+
