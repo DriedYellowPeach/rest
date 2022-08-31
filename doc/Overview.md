@@ -5,8 +5,9 @@
 
 * 首先， 我们比较一下`http/1.1`与`http/2`的主要区别在哪
 * 然后我们分析nghttp2的主要特点与重要的API
-* 接着通过一张简要的架构设计图来介绍一下这个rest server会有哪些组件
-* 最后通过分析下isulad的一些处理流程，来看看isulad将会怎样使用该rest server， 分析的一些重要流程如下：当普通rest request和流式rest request到达时, rest server怎样处理；绑定的endpoint handler怎样调用下层具体执行容器操作的callback等场景。 
+* 然后通过一张简要的架构设计图来介绍一下这个rest server会有哪些组件
+* 接着通过分析下isulad的一些处理流程，来看看isulad将会怎样使用该rest server， 分析的一些重要流程如下：当普通rest request和流式rest request到达时, rest server怎样处理；绑定的endpoint handler怎样调用下层具体执行容器操作的callback等场景。 
+* 最后分析一下进行替换之后， isulad的哪些代码需要改动， 改动量有多大。
 
 
 ## 1. Features In Http/2
@@ -200,12 +201,12 @@ func main () {
 
 ## 3 Rest Server Design
 nghttp2的实现思路是， 针对完全抽象的http/2标准做了具体的实现， 上面讨论的一些http/2中的抽象概念在nghttp2中都有对应的组件： 
-* Session -> `struct nghttp2_session`
-* Stream -> `struct nghttp2_stream`
-* Message -> 没有request， response的具体结构体， 因为Message被分成了粒度更细的数据结构， 比如header, body. `  rv = nghttp2_submit_response(session, stream_id, nva, nvlen, &data_prd);`
-* Frame -> `struct nghttp2_headers struct nghttp2_priority`
+* *Session* -> `struct nghttp2_session`
+* *Stream* -> `struct nghttp2_stream`
+* *Message* -> 没有request， response的具体结构体， 因为Message被分成了粒度更细的数据结构， 比如header, body. `  rv = nghttp2_submit_response(session, stream_id, nva, nvlen, &data_prd);`, 这些参数用来代表一个response
+* *Frame* -> `struct nghttp2_headers struct nghttp2_priority`
 
-nghttp2的实现不是专门为了client或是server，它的实现更加的抽象， 为了实现rest server， 思路就是：依然利用nghttp2的这些通用的组件， 在其基础上添加更加具体的实现， 在每一个组件上添加更多的数据成员和代码逻辑来实现一个服务器的功能。
+nghttp2的实现不是专门为了client或是server，它的实现更加的抽象， 为了实现该rest server， 思路就是：依然利用nghttp2的这些通用的组件， 在其基础上添加更加具体的实现， 即在每一个组件上添加更多的数据成员和代码逻辑来实现一个服务器的功能。
 
 因此， rest server的主要模块如下：
 * Server, 这一部分主要负责监听和建立连接， 这一部分的逻辑在nghttp2中是缺失的， 因此需要从0实现
@@ -220,3 +221,24 @@ nghttp2的实现不是专门为了client或是server，它的实现更加的抽�
 
 
 ## 4 Handling Process
+这里主要分析两个具体的isulad http接口怎么用该rest server实现，我挑选了一个普通接口resize和流式接口copyFromContainer.
+
+### 4.1 resize接口流程分析
+* 为了完成resize rest接口， 在 Mux模块上注册Handler， Handler函数内部会注册request处理函数和response响应函数, 然后Handler返回， request真正的处理和response的真正的响应的调用时机由nghttp2决定， 这里只是注册；这个地方的逻辑与传统的rest server框架不同， 这是因为nghttp2是异步框架。
+  * 关于request 处理函数的设计： 如果request body很长， 或者是流式的request body, 那么nghttp2会把body分成多个data chunk, 我们的request处理函数需要处理这种情况， 目前我的设计是：在request结构体内部增加一个buffer， 每次把data chunk写入buffer里面， 而且每次检查data chunk的最后一个byte是否是\0, 如果确实是json string的结尾， 那么就调用lcr生成的json parse函数， 把json字符串转换成结构体， 并进行后续操作。
+  * 关于response 响应函数的设计： 同样不是传统的模型， 不能直接写所有的响应json string, nghttp2提供的响应接口是这样的`  rv = nghttp2_submit_response(session, stream_id, nva, nvlen, &data_prd);`, 前面的参数用来寻找发送的Stream和构造response header, 而response body用最后data_prd提供， data_prd即`data_provider`， 它要求你绑定一个readcb来提供数据， 这里是这个read_cb要求你把数据放到一个buffer里去， 但是每次放多少也是不确定的。目前我的设计是：把要返回的结构体用yajl提供的函数生成为字符串， 把字符串写入buffer里面， 每次调用read_cb的时候，记录当前已读过的offset, 下次读读时候从offset开始，这里是极端情况， 绝大多数情况来说应该都是一次读完的。
+
+### 4.2 copy接口流程分析
+* copy接口应该与resize接口大部分处理类似， request处理是一样的， 不同的是response响应的处理
+  * 关于request 处理函数的设计：因为request body还是使用json string, 这里的处理和resize完全一样。
+  * 关于response 响应函数的设计： 因为这里是流式传输， 而且需要适配之前的代码框架， 之前grpc进行流式传输的方式是把一个writer object提供给更下层的cb
+  ```c++
+    stream_func_wrapper stream = { 0 };
+    stream.context = (void *)context;
+    stream.is_cancelled = &grpc_is_call_cancelled;
+    stream.add_initial_metadata = &grpc_add_initial_metadata;
+    stream.write_func = &grpc_copy_from_container_write_function;
+    stream.writer = (void *)writer;
+  ```
+  这个cb底层会启动一个while循环不断的调用write_func, 因此， 除非这个while循环运行在独立的线程里面，不然这个while循环的设计没法与nghttp2的异步框架兼容。
+  因此改动最小改法可能就是把底层的cb的执行放进一个独立线程里面， 然后向一个buffer写， 另外这个buffer会被data_provider持有， 并有readcb不断从buffer读取并进行response响应。
