@@ -35,6 +35,22 @@ create_session(struct server *svr, int fd, struct sockaddr *addr, int addrlen)
   return ses;
 }
 
+
+// TODO: other callbacks like on_frame_not_send_callback
+void initialize_nghttp2_session(struct session *ses)
+{
+  nghttp2_session_callbacks *callbacks;
+
+  nghttp2_session_callbacks_new(&callbacks);
+
+  nghttp2_session_callbacks_set_send_callback(callbacks, send_callback);
+  nghttp2_session_callbacks_set_on_begin_headers_callback(callbacks, on_begin_headers_callback);
+  nghttp2_session_callbacks_set_on_header_callback(callbacks, on_header_callback);
+  nghttp2_session_callbacks_set_on_frame_recv_callback(callbacks, on_frame_recv_callback);
+  nghttp2_session_callbacks_set_on_data_chunk_recv_callback(callbacks, on_data_chunk_recv_callback);
+  nghttp2_session_callbacks_set_on_stream_close_callback(callbacks, on_stream_close_callback);
+}
+
 // TODO: be sure to free all the stream_ctx in the session;
 void delete_session(struct session *ses)
 {
@@ -42,13 +58,30 @@ void delete_session(struct session *ses)
   free(ses);
 }
 
-int add_stream_context(struct session *ses, int stream_id)
+int hold_stream_context(struct session *ses, int stream_id)
 {
   struct stream_context *stream_ctx;
   stream_ctx = create_stream_context(stream_id);
   // TODO a map to put the stream context in
 
   return 0;
+}
+
+int release_stream_context(struct session *ses, struct stream_context *strm_ctx)
+{
+  list_remove_stream_context(ses, strm_ctx);
+  delete_stream_context(strm_ctx);
+
+  return 0;
+}
+
+static void list_append_stream_context(struct session *ses, struct stream_context *stream_ctx) {
+  // TODO link list add
+}
+
+// TODO link list remove
+static void list_remove_stream_context(struct session *ses, struct stream_context *stream_ctx) {
+
 }
 
 static int session_recv(struct session *ses)
@@ -219,7 +252,46 @@ on_header_callback(nghttp2_session *ngsession, const nghttp2_frame *frame,
   // set request's field.
 }
 
+/* 
+** on_frame_recv_callback will be called if one kind of frame is received
+** there are two kinds of frame: NGHTTP2_DATA and NGHTTP2_HEADERS
+** NGHTTP2_DATA means data fully received? no
+** NGHTTP2_HEADERS means headers fully received? yes
+** so we can call mux to get endpoint handler to handle(register cb)
+** since http2 has one headers frame and multiple data frame
+*/
 static int on_frame_recv_callback(nghttp2_session *session, const nghttp2_frame *frame, void *user_data)
 {
+  switch (frame->hd.type) {
+    case NGHTTP2_DATA:
 
+    break;
+    case NGHTTP2_HEADERS: 
+
+    break;
+  }
+
+  return 0;
 }
+
+/*
+** on_data_chunk_recv_callback will be called if a data chunk in data frame be received
+** req with registerd callback will be called with fixed length byte array
+*/
+static int on_data_chunk_recv_callback(nghttp2_session *ses, uint8_t flags, int32_t stream_id, const uint8_t *data, size_t len, void *user_data) 
+{
+  struct stream_context *strm_ctx = nghttp2_session_get_stream_user_data(ses, stream_id);
+
+  // TODO: use stram_ctx to get the request, and call req.call_on_data(data, len);
+  return 0;
+}
+
+
+static int on_stream_close_callback(nghttp2_session *ses, int32_t stream_id, uint32_t error_code, void *user_data)
+{
+  struct stream_context *strm_ctx = nghttp2_session_get_stream_user_data(ses, stream_id);
+  // TODO: user strm_ctx to get the response, and call resp.call_on_close(err_code);
+
+  // TODO: unhold the strm_ctx from session, and free the strm_ctx
+}
+
