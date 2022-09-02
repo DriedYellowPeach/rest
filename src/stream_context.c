@@ -1,5 +1,3 @@
-#ifndef STREAM_CONTEXT_H
-#define STREAM_CONTEXT_H
 
 #include "stream_context.h"
 
@@ -14,4 +12,7 @@ struct stream_context *create_stream_context(int streamid)
     return stream_ctx;
 }
 
-#endif
+void delete_stream_context(struct stream_context* strm_ctx)
+{
+    free(strm_ctx);
+}
