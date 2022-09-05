@@ -19,5 +19,5 @@
         do { perror("[SYSERR]" s); } while(0)
 
 #define log_info(fmt, ...) \
-    do { fprintf(stderr, "[INFO]" fmt, ##__VA_ARGS__); } while(0)
+    do { fprintf(stderr, "[INFO]" fmt "\n", ##__VA_ARGS__);} while(0)
 #endif

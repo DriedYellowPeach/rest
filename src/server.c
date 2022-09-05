@@ -20,7 +20,7 @@ struct server *server_create(char *port)
 
 int server_start(struct server *svr)
 {
-  apply_listener(svr->eg, svr->port, acceptcb, NULL);
+  apply_listener(svr->eg, svr->port, acceptcb, svr);
 
   event_base_loop(svr->eg->evbase, 0);
   // struct event_base *evbase;

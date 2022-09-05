@@ -57,6 +57,7 @@ session_create(struct server *svr, int fd, struct sockaddr *addr, int addrlen)
   ses = malloc(sizeof(struct session));
   memset(ses, 0, sizeof(struct session));
   setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *)&val, sizeof(val));
+  // bev = apply_bufferevent(svr->eg, fd, readcb, writecb, eventcb, (void *)ses);
   bev = apply_bufferevent(svr->eg, fd, readcb, writecb, eventcb, (void *)ses);
   ses->bev = bev;
 
@@ -90,6 +91,7 @@ int initialize_nghttp2_session(struct session *ses)
 
   if ((ret = nghttp2_session_server_new(&ses->ngsession, callbacks, ses)) != 0)
   {
+    log_info("nghttp2_session_server_new failed");
     return -1;
   }
 
@@ -239,6 +241,7 @@ static int send_server_connection_header(struct session *ses) {
 
 static void eventcb(struct bufferevent *bev, short events, void *ptr)
 {
+  log_info("here called event");
   struct session *ses = (struct session *)ptr;
   if (events & BEV_EVENT_CONNECTED)
   {

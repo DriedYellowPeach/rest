@@ -2,6 +2,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 #include "log.h"
 
 
@@ -29,7 +30,10 @@ apply_listener(struct io_engine *eg, const char *listen_addr, evconnlistener_cb 
     for (rp = res; rp; rp = rp->ai_next) {
         // log_info("listen on: %s:%d", rp->ai_addr, (int)rp->ai_addrlen);
         struct sockaddr_in *addr = (struct sockaddr_in *)rp->ai_addr;
-        log_info("addr: %d: %d", (int)addr->sin_addr.s_addr, (int)addr->sin_port);
+        // log_info("addr: %d: %d", (int)addr->sin_addr.s_addr, (int)addr->sin_port);
+        char *ip = inet_ntoa(addr->sin_addr);
+        uint16_t port = htons(addr->sin_port);
+        log_info("addr: %s:%d", ip, port);
         listener = evconnlistener_new_bind(
             eg->evbase, acceptcb, arg, LEV_OPT_CLOSE_ON_FREE| LEV_OPT_REUSEABLE, \
             16, rp->ai_addr, (int)rp->ai_addrlen);
@@ -49,6 +53,7 @@ apply_bufferevent(struct io_engine *eg, int fd, bufferevent_data_cb readcb, buff
     struct bufferevent * bev = NULL;
     bev = bufferevent_socket_new(eg->evbase, fd, BEV_OPT_CLOSE_ON_FREE | BEV_OPT_DEFER_CALLBACKS);
     bufferevent_enable(bev, EV_READ|EV_WRITE);
+    // bufferevent_enable(bev, 0);
     bufferevent_setcb(bev, readcb, writecb, eventcb, ctx);
     return bev;
 }
