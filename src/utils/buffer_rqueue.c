@@ -68,11 +68,11 @@ int buffer_read(struct buffer *buf, void *output, int nbytes)
 // -2 for full and blocking
 int buffer_write(struct buffer *buf, void *input, int nbytes)
 {
-    struct page *pg = create_page(input, nbytes);
+    struct page *pg = page_create(input, nbytes);
     return rqueue_write(buf->rq, (void *)pg);
 }
 
-struct page *create_page(char *ptr, int size) {
+struct page *page_create(char *ptr, int size) {
     struct page *pg = NULL;
     pg = (struct page *)malloc(sizeof(struct page));
     pg->buf_ptr = (char *)malloc(sizeof(char) * size);

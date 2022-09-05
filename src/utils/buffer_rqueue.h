@@ -22,4 +22,4 @@ struct page {
 
 void page_destroy(void *page); 
 
-struct page * create_page(char *ptr, int size); 
+struct page * page_create(char *ptr, int size); 
