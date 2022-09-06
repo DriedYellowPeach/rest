@@ -195,6 +195,9 @@ static void readcb(struct bufferevent *bev, void *ptr)
 {
   struct session *ses = (struct session *)ptr;
   (void)bev;
+  if (ses->ngsession == NULL) {
+    eventcb(bev, BEV_EVENT_CONNECTED, ptr);
+  }
 
   if (session_recv(ses) != 0)
   {
@@ -206,6 +209,9 @@ static void readcb(struct bufferevent *bev, void *ptr)
 static void writecb(struct bufferevent *bev, void *ptr)
 {
   struct session *ses = (struct session *)ptr;
+  if (ses->ngsession == NULL) {
+    eventcb(bev, BEV_EVENT_CONNECTED, ptr);
+  }
   if (evbuffer_get_length(bufferevent_get_output(bev)) > 0)
   {
     return;
@@ -246,6 +252,10 @@ static void eventcb(struct bufferevent *bev, short events, void *ptr)
   if (events & BEV_EVENT_CONNECTED)
   {
     // TODO: error handling
+    if (ses->ngsession) {
+      return;
+    }
+
     initialize_nghttp2_session(ses);
     log_info("%s connected", ses->client_addr);
     if (send_server_connection_header(ses) != 0 ||
@@ -504,6 +514,9 @@ static ssize_t file_read_callback(nghttp2_session *session, int32_t stream_id,
                                   nghttp2_data_source *source,
                                   void *user_data)
 {
+  //log_info("here");
+  log_debug("here");
+  log_debug("buf len: %d", (int)length);
   int fd = source->fd;
   ssize_t r;
   (void)session;
@@ -537,6 +550,7 @@ static int send_response(nghttp2_session *session, int32_t stream_id,
     log_err("Fatal error: %s", nghttp2_strerror(rv));
     return -1;
   }
+  log_info("submit response succeed!");
   return 0;
 }
 
@@ -544,6 +558,7 @@ static int on_request_recv(nghttp2_session *session,
                            struct session *ses,
                            struct stream_context *strm_ctx)
 {
+  log_info("on request recv");
   int fd;
   nghttp2_nv hdrs[] = {MAKE_NV(":status", "200")};
   char *rel_path;
@@ -569,6 +584,7 @@ static int on_request_recv(nghttp2_session *session,
   for (rel_path = strm_ctx->request_path; *rel_path == '/'; ++rel_path)
     ;
   fd = open(rel_path, O_RDONLY);
+  log_info("fd is: %d", fd);
   if (fd == -1)
   {
     if (error_reply(session, strm_ctx) != 0)
