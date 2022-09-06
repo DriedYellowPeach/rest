@@ -36,7 +36,7 @@
 
 #include <nghttp2/nghttp2.h>
 
-#include "http-parser/http_parser.h"
+#include "http_parser.h"
 
 #define ARRLEN(A) (sizeof(A) / sizeof(A[0]))
 

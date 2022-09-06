@@ -10,17 +10,18 @@ void acceptcb(struct evconnlistener *listener, int fd,
   log_info("session created for fd: %d", fd);
 }
 
-struct server *server_create(char *port)
+struct server *server_create(char *host, char *port)
 {
   struct server *svr = malloc(sizeof(struct server));
+  svr->host = host;
   svr->port = port;
   svr->eg = io_engine_create();
   return svr;
 }
 
-int server_start(struct server *svr)
+int server_listen_and_serve(struct server *svr)
 {
-  apply_listener(svr->eg, svr->port, acceptcb, svr);
+  apply_listener(svr->eg, svr->host, svr->port, acceptcb, svr);
 
   event_base_loop(svr->eg->evbase, 0);
   // struct event_base *evbase;

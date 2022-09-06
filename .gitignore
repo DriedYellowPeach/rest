@@ -3,3 +3,8 @@
 
 # Ignore object file
 *.o
+
+# Ignore executable file
+test
+client
+rq_test

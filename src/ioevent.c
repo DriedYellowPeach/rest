@@ -7,7 +7,7 @@
 
 
 struct evconnlistener *
-apply_listener(struct io_engine *eg, const char *listen_addr, evconnlistener_cb acceptcb, void *arg)
+apply_listener(struct io_engine *eg, const char *host, const char *listen_addr, evconnlistener_cb acceptcb, void *arg)
 {
     int ret;
     struct addrinfo hints;
@@ -21,7 +21,7 @@ apply_listener(struct io_engine *eg, const char *listen_addr, evconnlistener_cb 
     hints.ai_flags |= AI_ADDRCONFIG;
 #endif
 
-    ret = getaddrinfo(NULL, listen_addr, &hints, &res);
+    ret = getaddrinfo(host, listen_addr, &hints, &res);
     if (ret != 0) {
         log_sys_err("could resolve server listen addr: ");
         return NULL;
@@ -64,6 +64,7 @@ struct io_engine *io_engine_create()
     struct io_engine *eg;
     eg = (struct io_engine *)malloc(sizeof(struct io_engine));
     eg->evbase = event_base_new();
+    return eg;
 }
 
 void io_engine_destroy(void *ptr)

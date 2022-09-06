@@ -16,7 +16,7 @@ struct io_engine *io_engine_create();
 void io_engine_destroy(void *ptr);
 
 struct evconnlistener *
-apply_listener(struct io_engine *eg, const char *listen_addr, evconnlistener_cb acceptcb, void *arg);
+apply_listener(struct io_engine *eg, const char *host, const char *listen_addr, evconnlistener_cb acceptcb, void *arg);
 
 struct bufferevent *
 apply_bufferevent(struct io_engine *eg, int fd, bufferevent_data_cb readcb, bufferevent_data_cb writecb, bufferevent_event_cb eventcb, void *ctx);

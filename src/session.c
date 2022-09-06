@@ -185,7 +185,7 @@ static int session_send(struct session *ses)
   rv = nghttp2_session_send(ses->ngsession);
   if (rv != 0)
   {
-    log_err("Fatal error: %s", nghttp2_strerror(rv));
+    log_err("Fatal error: %s, %d", nghttp2_strerror(rv), rv);
     return -1;
   }
   return 0;
@@ -247,7 +247,6 @@ static int send_server_connection_header(struct session *ses) {
 
 static void eventcb(struct bufferevent *bev, short events, void *ptr)
 {
-  log_info("here called event");
   struct session *ses = (struct session *)ptr;
   if (events & BEV_EVENT_CONNECTED)
   {
@@ -304,7 +303,10 @@ static ssize_t send_callback(nghttp2_session *session, const uint8_t *data, size
   {
     return NGHTTP2_ERR_WOULDBLOCK;
   }
-  bufferevent_write(bev, data, length);
+  int ret = bufferevent_write(bev, data, length);
+  if (ret != 0) {
+    log_err("bufferevent_write error");
+  }
   return (ssize_t)length;
 }
 
@@ -514,9 +516,6 @@ static ssize_t file_read_callback(nghttp2_session *session, int32_t stream_id,
                                   nghttp2_data_source *source,
                                   void *user_data)
 {
-  //log_info("here");
-  log_debug("here");
-  log_debug("buf len: %d", (int)length);
   int fd = source->fd;
   ssize_t r;
   (void)session;
@@ -525,8 +524,10 @@ static ssize_t file_read_callback(nghttp2_session *session, int32_t stream_id,
 
   while ((r = read(fd, buf, length)) == -1 && errno == EINTR)
     ;
+  
   if (r == -1)
   {
+    log_sys_err("sys error:");
     return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
   }
   if (r == 0)
@@ -653,7 +654,14 @@ static int on_data_chunk_recv_callback(nghttp2_session *ses, uint8_t flags, int3
 
 static int on_stream_close_callback(nghttp2_session *ses, int32_t stream_id, uint32_t error_code, void *user_data)
 {
+  struct session *ses_ctx = (struct session *)user_data;
   struct stream_context *strm_ctx = nghttp2_session_get_stream_user_data(ses, stream_id);
+  if (!strm_ctx) {
+    return 0;
+  }
+
+  release_stream_context(ses_ctx, strm_ctx);
+  return 0;
   // TODO: user strm_ctx to get the response, and call resp.call_on_close(err_code);
 
   // TODO: unhold the strm_ctx from session, and free the strm_ctx
