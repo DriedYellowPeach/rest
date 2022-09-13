@@ -400,6 +400,8 @@ static void print_header(const uint8_t *name, size_t namelen, const uint8_t *val
   value_string[valuelen] = '\0';
 
   log_info("HEADERS--> %10s: %s", name_string, value_string);
+  free(name_string);
+  free(value_string);
 }
 
 /*

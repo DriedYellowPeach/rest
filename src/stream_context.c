@@ -1,6 +1,8 @@
 #include "stream_context.h"
 #include <string.h>
 #include <stdlib.h>
+#include "request.h"
+#include "response.h"
 
 struct stream_context *stream_context_create(int streamid)
 {
@@ -15,5 +17,7 @@ struct stream_context *stream_context_create(int streamid)
 
 void stream_context_destroy(struct stream_context* strm_ctx)
 {
+    request_destroy(strm_ctx->req);
+    response_destroy(strm_ctx->resp);
     free(strm_ctx);
 }
