@@ -9,6 +9,10 @@ struct buffer *buffer_create(size_t size, rqueue_mode_t mode)
     rqueue_t *rq;
 
     buf = (struct buffer *)malloc(sizeof(struct buffer));
+    if (pthread_mutex_init(&buf->c_lock, NULL) != 0) {
+        free(buf);
+        return NULL;
+    }
     rq = rqueue_create(size, RQUEUE_MODE_BLOCKING);
     //rqueue_set_free_value_callback(rq, destroy_page);
     buf->pg = NULL;
@@ -21,6 +25,7 @@ struct buffer *buffer_create(size_t size, rqueue_mode_t mode)
 void buffer_destroy(void *buffer)
 {
     struct buffer *buf = (struct buffer *)buffer;
+    pthread_mutex_destroy(&buf->c_lock);
     // free rqueue
     rqueue_set_free_value_callback(buf->rq, page_destroy);
     rqueue_destroy(buf->rq);

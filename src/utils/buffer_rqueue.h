@@ -1,10 +1,13 @@
 #include "rqueue.h"
 #include "atomic_defs.h"
+#include <pthread.h>
 
 struct buffer {
     rqueue_t *rq;
     struct page *pg;
     int offset;
+    pthread_mutex_t c_lock; /*proted closed*/
+    int closed;
 };
 
 struct buffer *buffer_create(size_t size, rqueue_mode_t mode);

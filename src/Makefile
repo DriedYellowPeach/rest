@@ -1,4 +1,4 @@
-LDADD = -ldl -levent -lnghttp2
+LDADD = -ldl -levent -lnghttp2 -lpthread
 DEBUG = -g
 
 test: test.o server.o session.o stream_context.o ioevent.o

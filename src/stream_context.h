@@ -4,6 +4,7 @@
 //#include "session.h"
 #include "request.h"
 #include "response.h"
+#include <pthread.h>
 
 struct stream_context {
     int stream_id;
@@ -14,6 +15,7 @@ struct stream_context {
     int fd;
     struct request *req;
     struct resposne *resp; 
+    pthread_mutex_t strm_lock; /* protect the whole stream context */
 };
 
 struct stream_context *stream_context_create(int streamid);
