@@ -14,7 +14,7 @@ struct stream_context {
     char *request_path;
     int fd;
     struct request *req;
-    struct resposne *resp; 
+    struct response *resp; 
     pthread_mutex_t strm_lock; /* protect the whole stream context */
 };
 

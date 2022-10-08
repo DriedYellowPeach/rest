@@ -1,5 +1,6 @@
 #include "request.h"
 #include "log.h"
+#include <unistd.h>
 
 struct request *request_create(void)
 {
@@ -7,15 +8,20 @@ struct request *request_create(void)
     req->path = NULL;
     req->method = NULL;
     // TODO: the mode setting 
-    req->body = buffer_create(DEFAULT_BODY_SIZE, RQUEUE_MODE_BLOCKING);
+    //req->body = buffer_create(DEFAULT_BODY_SIZE, RQUEUE_MODE_BLOCKING);
+    if (pipe(req->body) < 0) {
+       log_sys_err("create request body failed: ");
+    }
 }
 
 void request_destroy(struct request *req)
 {
     free(req->path);
     free(req->method);
-    buffer_destroy(req->body);
+    // buffer_destroy(req->body);
     headers_destroy(req->hdrs);
+    close(req->body[0]);
+    close(req->body[1]);
     free(req);
 }
 

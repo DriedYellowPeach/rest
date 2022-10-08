@@ -4,7 +4,8 @@
 #include <utils/buffer_rqueue.h>
 
 struct response {
-    struct buffer *body;
+    //struct buffer *body;
+    int body[2];
     struct headers *hdrs;
 };
 

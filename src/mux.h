@@ -7,6 +7,8 @@
 
 #define MAXHANDLERS 128
 
+struct mux *server_mux;
+
 typedef void(*handler)(struct request *req, struct response *resp, void *handler_ctx);
 
 struct mux {

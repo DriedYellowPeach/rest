@@ -290,10 +290,46 @@ nghttp2的实现不是专门为了做一个client或是server，它是一个底�
 * Session Context, 这一部分是nghttp_session的更加具体的实现， 当建立连接之后， 会创建一个session context, 一个session context就是一条tcp连接。 session context的主要职责就是定义一系列的callback， 当某些特定i/o事件发生，应该负责建立其他的对象，举个例子： 当装载着headers的frame到达的时候， 这时候意味着一条新的Stream建立了， 应该创建一个新的stream对象并管理它。 额外举个例子：当装载着data的request body到达的时候， 这时候应该调用事先定义好的处理request body的代码， 比如request body是json string， 那么就应该调marshal json string的代码. 
 * Stream Context, 当Session Context发现了一个request header的时候，这标志着一个Stream建立了， 这时候Session Context会建立Stream并管理它，Stream Context会唯一绑定nghttp2 Stream对象。 Stream Context对象会负责创建Request和Response对象。
 * Mux, 这是路由模块，通过request path, 路由到注册的handler上去， 让对应的handler来处理request。
-* Request and Response, handler通过调用这两个模块上的方法来处理请求和响应。
+* Request and Response, handler通过调用这两个模块上的方法来处理请求和响应。 request 提供主要的接口是`request_body_as_json_string`, 把request的body完整的读出来， 作为json字符串。response提供的主要接口是`response_body_from_json_string`, 把一个json字符串写到response body里面并发送。
 
+如果是普通接口，工作量就是按照相似的逻辑，重写一下每个rest接口，可以发现isulad中rest的核心逻辑
+client：
+```c
+ret = start_request_to_rest(ls_request, &body, &len);
+ret = rest_send_request(socketname, RestHttpHead ContainerServiceStart, body, len, &s_output);
+ret = get_response(s_output, unpack_start_response, (void *)ls_response);
+```
 
+server:
+```c
+start_request_check()
+rest_start_cb()
+      // get method from headers
+      if (evhtp_request_get_method(req) != htp_method_POST)
 
+      // request body -> json string -> c struct
+      action_request_from_rest(req, (void **)&crequest, ContainerServiceStart);
+          get_body(req, &body_len, &body);
+          *request = (void *)ops->request_parse_data(body, NULL, &err);
+
+      (void)cb->container.start(crequest, &cresponse, -1, NULL, NULL);
+
+      // c struct -> json string -> response body
+      evhtp_send_start_repsponse(req, cresponse, RESTFUL_RES_OK);
+      container_start_response_generate_json(response, &ctx, &err);
+
+      // send response 
+      evhtp_send_response(req, responsedata, rescode);
+```
+主要的逻辑就是提供与上面API类似的API并且进行替换。
+
+如果是流式接口，一个要处理的问题就是:
+```c
+      (void)cb->container.start(crequest, &cresponse, -1, NULL, NULL);
+
+      int (*logs)(const struct isulad_logs_request *request, stream_func_wrapper *stream, struct isulad_logs_response **response);
+```
+该底层执行真正操作的函数会一直在while循环里面执行，该rest cb永远不会返回，这时候需要提供一套另外的API用来专门做流式传输。rest server提供一个buffer，并在独立的线程里面启动cb, 这个buffer作为stream对象传递给logs cb。
 
 
 ## 4 Handling Process

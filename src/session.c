@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <unistd.h>
+#include "mux.h"
 
 #define ARRLEN(x) (sizeof(x) / sizeof(x[0]))
 
@@ -576,35 +577,45 @@ static int on_request_recv(nghttp2_session *session,
   }
   fprintf(stderr, "%s GET %s\n", ses->client_addr,
           strm_ctx->request_path);
-  if (!check_path(strm_ctx->request_path))
-  {
-    if (error_reply(session, strm_ctx) != 0)
-    {
-      return NGHTTP2_ERR_CALLBACK_FAILURE;
-    }
-    return 0;
-  }
-  for (rel_path = strm_ctx->request_path; *rel_path == '/'; ++rel_path)
-    ;
-  fd = open(rel_path, O_RDONLY);
-  log_info("fd is: %d", fd);
-  if (fd == -1)
-  {
-    if (error_reply(session, strm_ctx) != 0)
-    {
-      return NGHTTP2_ERR_CALLBACK_FAILURE;
-    }
-    return 0;
-  }
-  strm_ctx->fd = fd;
 
-  if (send_response(session, strm_ctx->stream_id, hdrs, ARRLEN(hdrs), fd) !=
-      0)
+  mux_as_handler(strm_ctx->req, strm_ctx->resp, (void *)server_mux);
+
+  if (send_response(session, strm_ctx->stream_id, hdrs, ARRLEN(hdrs), strm_ctx->resp->body[0]) != 0)
   {
-    close(fd);
+    //close(strm_ctx->resp->body[0]);
     return NGHTTP2_ERR_CALLBACK_FAILURE;
   }
   return 0;
+
+  // if (!check_path(strm_ctx->request_path))
+  // {
+  //   if (error_reply(session, strm_ctx) != 0)
+  //   {
+  //     return NGHTTP2_ERR_CALLBACK_FAILURE;
+  //   }
+  //   return 0;
+  // }
+  // for (rel_path = strm_ctx->request_path; *rel_path == '/'; ++rel_path)
+  //   ;
+  // fd = open(rel_path, O_RDONLY);
+  // log_info("fd is: %d", fd);
+  // if (fd == -1)
+  // {
+  //   if (error_reply(session, strm_ctx) != 0)
+  //   {
+  //     return NGHTTP2_ERR_CALLBACK_FAILURE;
+  //   }
+  //   return 0;
+  // }
+  // strm_ctx->fd = fd;
+
+  // if (send_response(session, strm_ctx->stream_id, hdrs, ARRLEN(hdrs), fd) !=
+  //     0)
+  // {
+  //   close(fd);
+  //   return NGHTTP2_ERR_CALLBACK_FAILURE;
+  // }
+  // return 0;
 }
 /*
 ** on_frame_recv_callback will be called if one kind of frame is received

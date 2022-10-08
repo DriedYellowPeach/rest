@@ -10,7 +10,8 @@
 struct request {
     char *path;
     char *method;
-    struct buffer *body;
+    //struct buffer *body;
+    int body[2];
     struct headers *hdrs;
     char bdy_string[MAX_STRING_SIZE];
 };
